@@ -51,12 +51,31 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+
+
+    implementation ("androidx.compose.material:material-icons-extended:1.5.4")
+
+    implementation ("androidx.datastore:datastore-preferences:1.0.0")
+    implementation ("androidx.datastore:datastore-core:1.0.0")
+
+    implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
+    implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
+
+    implementation ("androidx.compose.ui:ui-graphics:1.5.0")
+
+    implementation ("androidx.compose.ui:ui:1.5.0")
+    implementation ("androidx.compose.ui:ui-graphics:1.5.0")
+
+    implementation ("androidx.compose.ui:ui-graphics:1.5.0")
+
     implementation ("androidx.datastore:datastore-preferences:1.0.0")
 
     implementation("androidx.compose.ui:ui:1.6.0")
     implementation("androidx.compose.runtime:runtime:1.6.0")
     implementation("androidx.activity:activity-compose:1.8.0")
-    implementation("androidx.compose.material3:material3:1.2.0")
+    //implementation("androidx.compose.material3:material3:1.2.0")
+    implementation ("androidx.compose.material3:material3:1.1.2")
+
 
     implementation("com.google.android.material:material:1.12.0")
     testImplementation(libs.junit)
