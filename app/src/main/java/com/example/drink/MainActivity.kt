@@ -4,61 +4,37 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import com.example.drink.ui.theme.DrinkTheme
-import kotlinx.coroutines.launch
-
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.ContentDrawScope
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.drawscope.withTransform
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.ui.Alignment
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.rememberDrawerState
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
-import androidx.compose.material3.Divider
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.drink.ui.theme.DrinkTheme
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.animation.core.*
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.foundation.border
 
 
 
@@ -70,23 +46,19 @@ class MainActivity : ComponentActivity() {
         setContent {
             DrinkTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    com.example.drink.WaterTrackerScreen(Modifier.padding(innerPadding))
+                    WaterTrackerScreen(Modifier.padding(innerPadding))
                 }
             }
         }
     }
 }
+
 @Composable
 fun WaterTrackerScreen(modifier: Modifier = Modifier) {
-    DrawerScreen()
-
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var isSelected by remember { mutableStateOf(true) }
-
     var waterIntake by remember { mutableStateOf(0) }
 
-    // Wczytaj dane na start
     LaunchedEffect(Unit) {
         waterIntake = WaterDataStore.loadIntake(context)
     }
@@ -97,132 +69,226 @@ fun WaterTrackerScreen(modifier: Modifier = Modifier) {
             WaterDataStore.saveIntake(context, waterIntake)
         }
     }
+
     fun removeWater(amount: Int) {
         waterIntake -= amount
         scope.launch {
             WaterDataStore.saveIntake(context, waterIntake)
         }
     }
-    val brush = Brush.linearGradient(
-        colors = listOf(Color(0xFF0E65B7), Color(0xFF00BFFF))
+    var toggled by remember { mutableStateOf(false) }
+
+    // Automatyczne przełączanie koloru co 4 sekundy
+    LaunchedEffect(Unit) {
+        while (true) {
+            toggled = !toggled
+            kotlinx.coroutines.delay(15000)
+        }
+    }
+    val infiniteTransition = rememberInfiniteTransition(label = "bg")
+    val animatedColor by animateColorAsState(
+        targetValue = if (toggled) Color(0xFF0E65B7) else Color(0xFF00BFFF),
+        animationSpec = tween(durationMillis = 100, easing = LinearEasing),
+        label = "bg_anim"
     )
 
-    var expanded by remember { mutableStateOf(false) }
+    val progress = (waterIntake / 2000f).coerceIn(0f, 1f)
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
-    ) {
-        Text(
-            "Śledzenie picia wody",
-            style = MaterialTheme.typography.headlineMedium.copy(
-                color = MaterialTheme.colorScheme.primary
-            )
-        )
-
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(
-                "Dzisiaj wypiłeś:  $waterIntake ml",
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.secondary
+    ModalNavigationDrawer(
+        drawerState = rememberDrawerState(initialValue = DrawerValue.Closed),
+        scrimColor = Color.Black.copy(alpha = 0.9f), // Przyciemnienie tła
+        drawerContent = {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(25.dp)
+            ) {
+                Text(
+                    text = "MENU",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        shadow = Shadow(
+                            color = Color.Black,
+                            offset = Offset(1f, 1f),
+                            blurRadius = 2f
+                        )
+                    )
                 )
-            )
-            Button(onClick = { removeWater(250) }) {
-                Text("edytuj")
+                Spacer(modifier = Modifier.height(20.dp))
+                Divider()
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Text(text = "Statystyki",
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        shadow = Shadow(
+                            color = Color.Black,
+                            offset = Offset(2f, 2f),
+                            blurRadius = 4f
+                        )
+                    )
+                )
+                Spacer(modifier = Modifier.height(20.dp))
+                Text(text = "Historia",
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        shadow = Shadow(
+                            color = Color.Black,
+                            offset = Offset(2f, 2f),
+                            blurRadius = 4f
+                        )
+                    )
+                )
+                Spacer(modifier = Modifier.height(20.dp))
+                Text(text = "Ustawienia",
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        shadow = Shadow(
+                            color = Color.Black,
+                            offset = Offset(2f, 2f),
+                            blurRadius = 4f
+                        )
+                    )
+                )
             }
         }
-
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Button(onClick = { addWater(250) }) {
-                Text("+250 ml", style = MaterialTheme.typography.headlineLarge.copy(
-                    fontWeight = FontWeight.ExtraBold
-                ))
-            }
-            Button(onClick = { addWater(500) }) {
-                Text("+500 ml", style = MaterialTheme.typography.headlineLarge.copy(
-                    fontWeight = FontWeight.ExtraBold
-                ))
-            }
-        }
-
-
-        Text(
-            text = "WODA!",
-            style = MaterialTheme.typography.headlineLarge.copy(
-                fontWeight = FontWeight.ExtraBold
-            ),
-            modifier = Modifier
-                .drawWithCache {
-                    onDrawWithContent {
-                        drawContent()
-                        drawRect(brush = brush, blendMode = BlendMode.SrcAtop)
-                    }
-                }
-        )
-
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor =
-                    if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                    else
-                        MaterialTheme.colorScheme.surfaceVariant
-            )
+    ) {
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(animatedColor, Color.White)
+                    )
+                )
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Dinner club",
-                style = MaterialTheme.typography.bodyLarge,
-                color =
-                    if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                    else MaterialTheme.colorScheme.onSurface,
+                "Drink app",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    color = MaterialTheme.colorScheme.primary
+                )
+            )
+
+            LinearProgressIndicator(
+                progress = progress,
+                modifier = Modifier.fillMaxWidth().height(20.dp),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+            Text(
+                text = "${(progress * 100).toInt()}% celu osiągnięte",
+                style = MaterialTheme.typography.labelLarge,
+                textAlign = TextAlign.Center
+            )
+
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                var text=""
+                if (waterIntake < 1000){ text = "Szklanka ma dopiero: "}
+                else{text = "Szklanka ma już: "}
+                Text(
+                    "$text  $waterIntake ml",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                )
+            }
+
+            WaterGlass(
+                waterIntake = waterIntake,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                WaterCard(amount = 250) { addWater(250) }
+                WaterCard(amount = 500) { addWater(500) }
+            }
+
+            Button(onClick = { removeWater(250) }) {
+                Text("edytuj szklanki")
+            }
+            Text(
+                text = "🚰 Pij wodę, organizm ci podziękuje!",
+                style = MaterialTheme.typography.bodyLarge
             )
         }
-        Button(onClick = { isSelected = !isSelected }) {
-            Text("styl?")
+    }
+}
+
+@Composable
+fun WaterCard(amount: Int, onClick: () -> Unit) {
+    Card(
+        onClick = onClick,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+        ),
+        modifier = Modifier
+            .padding(5.dp)
+            //.fillMaxWidth()
+            .height(40.dp),
+        elevation = CardDefaults.cardElevation(8.dp),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                "+$amount ml",
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.ExtraBold
+                )
+            )
         }
     }
 }
 @Composable
-fun DrawerScreen() {
+fun WaterGlass(waterIntake: Int, modifier: Modifier = Modifier) {
+    val maxWater = 2500f // Maksymalne napełnienie (ml)
+    val waterPercent = (waterIntake / maxWater).coerceIn(0f, 1f)
 
-    // Pamiętanie stanu wysuwanego panelu
+    val animatedFill by animateFloatAsState(
+        targetValue = waterPercent,
+        animationSpec = tween(durationMillis = 1000, easing = LinearEasing),
+        label = "water_fill"
+    )
 
-    val drawerState = rememberDrawerState(DrawerValue.Closed)
-    val scope = rememberCoroutineScope()
-
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            // Zawartość panelu z menu
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp)
-            ) {
-                Text(text = "Menu", style = MaterialTheme.typography.headlineSmall)
-                Spacer(modifier = Modifier.height(20.dp))
-                Divider()
-                Spacer(modifier = Modifier.height(20.dp))
-                // Dodaj kolejne opcje menu
-                Text(text = "Opcja 1", modifier = Modifier.padding(vertical = 12.dp))
-                Text(text = "Opcja 2", modifier = Modifier.padding(vertical = 12.dp))
-                // itd.
-            }
-        }
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.BottomCenter
     ) {
-        // Główna treść ekranu
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
+        Canvas(modifier = Modifier
+            .width(140.dp)
+            .height(200.dp)
         ) {
-            Button(onClick = {
-                // Otworzenie wysuwanego panelu
-                scope.launch { drawerState.open() }
-            }) {
-                Text("Pokaż menu")
-            }
+            val glassTop = size.width * 0.1f
+            val glassBottom = size.height
+            val glassWidth = size.width * 0.8f
+
+            // Rysuj szklankę (obramowanie)
+            drawRoundRect(
+                color = Color.Gray,
+                topLeft = Offset(x = (size.width - glassWidth) / 2, y = glassTop),
+                size = Size(glassWidth, glassBottom - glassTop),
+                style = Stroke(width = 6f),
+                cornerRadius = CornerRadius(12f)
+            )
+
+            // Rysuj poziom wody
+            val waterHeight = (glassBottom - glassTop) * animatedFill
+            drawRoundRect(
+                color = Color(0xFF00BFFF),
+                topLeft = Offset(
+                    x = (size.width - glassWidth) / 2,
+                    y = glassBottom - waterHeight
+                ),
+                size = Size(glassWidth, waterHeight),
+                cornerRadius = CornerRadius(12f)
+            )
         }
     }
 }
