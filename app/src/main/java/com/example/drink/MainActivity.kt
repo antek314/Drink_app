@@ -7,7 +7,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,16 +33,34 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.Shadow
-import androidx.compose.foundation.border
-import androidx.compose.runtime.*
 import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.navigation.NavController
-import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.ui.window.Dialog
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import androidx.compose.material3.TextField
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import android.util.Log
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.ViewModel
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.Button
+import androidx.compose.material3.Slider
+
+
 
 
 class MainActivity : ComponentActivity() {
@@ -54,6 +71,7 @@ class MainActivity : ComponentActivity() {
             DrinkTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     val navController = rememberNavController()
+
                     NavHost(
                         navController = navController,
                         startDestination = "main"
@@ -63,7 +81,7 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier.padding(innerPadding),
                                 onNavigateToStatystyki = { navController.navigate("statystyki") },
                                 onNavigateToHistoria = { navController.navigate("historia") },
-                                onNavigateToUstawienia = { navController.navigate("ustawienia") }
+                                onNavigateToUstawienia = { navController.navigate("ustawienia")}
                             )
                         }
                         composable("statystyki") {
@@ -73,8 +91,10 @@ class MainActivity : ComponentActivity() {
                             HistoriaScreen(onBack = { navController.popBackStack() })
                         }
                         composable("ustawienia") {
-                            UstawieniaScreen(onBack = { navController.popBackStack() }, navController)
-                        }
+                            UstawieniaScreen(
+                                onBack = { navController.popBackStack() },
+                                navController)
+                                }
                     }
                 }
             }
@@ -93,9 +113,28 @@ onNavigateToUstawienia: () -> Unit
     val scope = rememberCoroutineScope()
     var waterIntake by remember { mutableStateOf(0) }
 
-    LaunchedEffect(Unit) {
+    var pojemnosc1 by remember { mutableStateOf(250) }
+    var pojemnosc2 by remember { mutableStateOf(500) }
+    var pojemnosc by remember { mutableStateOf(2500) }
+
+    LaunchedEffect(context) {
         waterIntake = WaterDataStore.loadIntake(context)
     }
+
+    LaunchedEffect(Unit) {
+        // Kolejne collect() śledzące zmiany pojemności
+        Szklanki.getPojemnosc1(context).collect { pojemnosc1 = it }
+        Szklanki.getPojemnosc2(context).collect { pojemnosc2 = it }
+        Szklanki.getPojemnosc(context).collect { pojemnosc = it }
+    }
+
+    val pojemnosc1State = Szklanki.getPojemnosc1(context).collectAsState(initial = pojemnosc1)
+    val pojemnosc2State = Szklanki.getPojemnosc2(context).collectAsState(initial = pojemnosc2)
+    val pojemnoscState = Szklanki.getPojemnosc(context).collectAsState(initial = pojemnosc)
+
+    pojemnosc1 = pojemnosc1State.value
+    pojemnosc2 = pojemnosc2State.value
+    pojemnosc = pojemnoscState.value
 
     fun addWater(amount: Int) {
         waterIntake += amount
@@ -119,7 +158,6 @@ onNavigateToUstawienia: () -> Unit
             kotlinx.coroutines.delay(15000)
         }
     }
-    val infiniteTransition = rememberInfiniteTransition(label = "bg")
     val animatedColor by animateColorAsState(
         targetValue = if (toggled) Color(0xFF0E65B7) else Color(0xFF00BFFF),
         animationSpec = tween(durationMillis = 100, easing = LinearEasing),
@@ -237,15 +275,7 @@ onNavigateToUstawienia: () -> Unit
                     )
                 )
             }
-            var pojemnosc1 by remember { mutableStateOf(250) }
-            var pojemnosc2 by remember { mutableStateOf(500) }
-            var pojemnosc by remember { mutableStateOf(2500) }
 
-            LaunchedEffect(Unit) {
-                Szklanki.getPojemnosc1(context).collect { pojemnosc1 = it }
-                Szklanki.getPojemnosc2(context).collect { pojemnosc2 = it }
-                Szklanki.getPojemnosc2(context).collect { pojemnosc = it }
-            }
             WaterGlass(
                 waterIntake = waterIntake,
                 modifier = Modifier.align(Alignment.CenterHorizontally),
@@ -382,9 +412,9 @@ fun WaterGlass(waterIntake: Int, modifier: Modifier = Modifier, maxWater:Int) {
         contentAlignment = Alignment.Center
     ) {
         val textColor = when {
-            waterPercent < 0.33f -> Color(0xFFFFB74D) // Jasny pomarańczowy
-            waterPercent < 0.66f -> Color(0xFFFFEB3B) // Jasny żółty
-            else -> Color(0xFF81C784) // Jasny zielony
+            waterPercent < 0.33f -> Color(0xFFFFB74D)
+            waterPercent < 0.66f -> Color(0xFFFFEB3B)
+            else -> Color(0xFF81C784)
         }
         Canvas(modifier = Modifier
             .width(140.dp)
@@ -394,7 +424,6 @@ fun WaterGlass(waterIntake: Int, modifier: Modifier = Modifier, maxWater:Int) {
             val glassBottom = size.height
             val glassWidth = size.width * 0.8f
 
-            // Rysuj szklankę (obramowanie)
             drawRoundRect(
                 color = Color.Gray,
                 topLeft = Offset(x = (size.width - glassWidth) / 2, y = glassTop),
@@ -403,7 +432,6 @@ fun WaterGlass(waterIntake: Int, modifier: Modifier = Modifier, maxWater:Int) {
                 cornerRadius = CornerRadius(12f)
             )
 
-            // Rysuj poziom wody
             val waterHeight = (glassBottom - glassTop) * animatedFill
             drawRoundRect(
                 color = Color(0xFF00BFFF),
@@ -462,7 +490,7 @@ fun HistoriaScreen(onBack: () -> Unit) {
                 title = { Text("Historia") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Wróć")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Wróć")
                     }
                 }
             )
@@ -486,11 +514,25 @@ fun HistoriaScreen(onBack: () -> Unit) {
 fun UstawieniaScreen(onBack: () -> Unit, navController: NavController) {
     val context = LocalContext.current
 
-    val savedGoal by Szklanki.getPojemnosc(context).collectAsState(initial = 2500)
+    val savedGoal by Szklanki.getPojemnosc(context).collectAsState(initial = 3000)
     var dailyGoal by remember { mutableStateOf(savedGoal) }
 
-    var remindersEnabled by remember { mutableStateOf(true) }
-    var notificationsTime by remember { mutableStateOf("12:00") }
+    LaunchedEffect(savedGoal) {
+        dailyGoal = savedGoal
+    }
+
+
+    val status by Szklanki.getStatus(context).collectAsState(initial = false)
+    var remindersEnabled by remember { mutableStateOf(status) }
+    LaunchedEffect(savedGoal) {
+        remindersEnabled = status
+    }
+    val godzina by Szklanki.getGodzina(context).collectAsState(initial = "12:00")
+    var notificationsTime by remember { mutableStateOf(godzina) }
+
+    LaunchedEffect(godzina) {
+        notificationsTime = godzina
+    }
 
     Scaffold(
         topBar = {
@@ -498,7 +540,7 @@ fun UstawieniaScreen(onBack: () -> Unit, navController: NavController) {
                 title = { Text("Ustawienia") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Wróć")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Wróć")
                     }
                 }
             )
@@ -519,7 +561,7 @@ fun UstawieniaScreen(onBack: () -> Unit, navController: NavController) {
                 value = dailyGoal.toFloat(),
                 onValueChange = { dailyGoal = it.toInt() },
                 valueRange = 1000f..4000f,
-                steps = 8
+                steps = 5
             )
             Text(
                 text = "$dailyGoal ml",
@@ -549,17 +591,23 @@ fun UstawieniaScreen(onBack: () -> Unit, navController: NavController) {
                     TextField(
                         value = notificationsTime,
                         onValueChange = { notificationsTime = it },
+                        label = { Text("Wpisz godzinę") },
                         modifier = Modifier.weight(1f)
                     )
                 }
             }
 
+
             Divider()
             val coroutineScope = rememberCoroutineScope()
 
             Button(onClick = {
+
                 coroutineScope.launch {
                     Szklanki.zmianaPojemnosc(context, dailyGoal)
+                    Szklanki.zmianaStatusu(context, remindersEnabled)
+                    Szklanki.zmianaGodziny(context, notificationsTime.toString())
+
                     navController.navigate("main") {
                         popUpTo("settings") { inclusive = true }
                     }
@@ -580,7 +628,7 @@ fun UstawieniaScreen(onBack: () -> Unit, navController: NavController) {
 @Composable
 fun GreetingPreview() {
     DrinkTheme {
-        WaterTrackerScreen(onNavigateToStatystyki = {}, onNavigateToHistoria = {}, onNavigateToUstawienia = {},)
+        WaterTrackerScreen(onNavigateToStatystyki = {}, onNavigateToHistoria = {}, onNavigateToUstawienia = {})
     }
 }
 
