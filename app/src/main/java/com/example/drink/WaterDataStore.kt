@@ -8,6 +8,8 @@ import java.time.LocalDate
 
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 object WaterDataStore {
     private val Context.dataStore by preferencesDataStore(name = "water_prefs")

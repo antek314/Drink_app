@@ -35,8 +35,15 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.foundation.border
-
-
+import androidx.compose.runtime.*
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.navigation.NavController
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.compose.ui.window.Dialog
 
 
 class MainActivity : ComponentActivity() {
@@ -46,7 +53,29 @@ class MainActivity : ComponentActivity() {
         setContent {
             DrinkTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    WaterTrackerScreen(Modifier.padding(innerPadding))
+                    val navController = rememberNavController()
+                    NavHost(
+                        navController = navController,
+                        startDestination = "main"
+                    ) {
+                        composable("main") {
+                            WaterTrackerScreen(
+                                modifier = Modifier.padding(innerPadding),
+                                onNavigateToStatystyki = { navController.navigate("statystyki") },
+                                onNavigateToHistoria = { navController.navigate("historia") },
+                                onNavigateToUstawienia = { navController.navigate("ustawienia") }
+                            )
+                        }
+                        composable("statystyki") {
+                            StatystykiScreen(onBack = { navController.popBackStack() })
+                        }
+                        composable("historia") {
+                            HistoriaScreen(onBack = { navController.popBackStack() })
+                        }
+                        composable("ustawienia") {
+                            UstawieniaScreen(onBack = { navController.popBackStack() }, navController)
+                        }
+                    }
                 }
             }
         }
@@ -54,7 +83,12 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun WaterTrackerScreen(modifier: Modifier = Modifier) {
+fun WaterTrackerScreen(
+modifier: Modifier = Modifier,
+onNavigateToStatystyki: () -> Unit,
+onNavigateToHistoria: () -> Unit,
+onNavigateToUstawienia: () -> Unit
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var waterIntake by remember { mutableStateOf(0) }
@@ -76,9 +110,9 @@ fun WaterTrackerScreen(modifier: Modifier = Modifier) {
             WaterDataStore.saveIntake(context, waterIntake)
         }
     }
+
     var toggled by remember { mutableStateOf(false) }
 
-    // Automatyczne przełączanie koloru co 4 sekundy
     LaunchedEffect(Unit) {
         while (true) {
             toggled = !toggled
@@ -96,7 +130,7 @@ fun WaterTrackerScreen(modifier: Modifier = Modifier) {
 
     ModalNavigationDrawer(
         drawerState = rememberDrawerState(initialValue = DrawerValue.Closed),
-        scrimColor = Color.Black.copy(alpha = 0.9f), // Przyciemnienie tła
+        scrimColor = Color.Black.copy(alpha = 0.75f), // Przyciemnienie tła
         drawerContent = {
             Column(
                 modifier = Modifier
@@ -120,6 +154,7 @@ fun WaterTrackerScreen(modifier: Modifier = Modifier) {
                 Spacer(modifier = Modifier.height(20.dp))
 
                 Text(text = "Statystyki",
+                    modifier = Modifier.clickable { onNavigateToStatystyki() },
                     style = MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
@@ -132,6 +167,7 @@ fun WaterTrackerScreen(modifier: Modifier = Modifier) {
                 )
                 Spacer(modifier = Modifier.height(20.dp))
                 Text(text = "Historia",
+                    modifier = Modifier.clickable { onNavigateToHistoria() },
                     style = MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
@@ -144,6 +180,7 @@ fun WaterTrackerScreen(modifier: Modifier = Modifier) {
                 )
                 Spacer(modifier = Modifier.height(20.dp))
                 Text(text = "Ustawienia",
+                    modifier = Modifier.clickable { onNavigateToUstawienia() },
                     style = MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
@@ -200,19 +237,103 @@ fun WaterTrackerScreen(modifier: Modifier = Modifier) {
                     )
                 )
             }
+            var pojemnosc1 by remember { mutableStateOf(250) }
+            var pojemnosc2 by remember { mutableStateOf(500) }
+            var pojemnosc by remember { mutableStateOf(2500) }
 
+            LaunchedEffect(Unit) {
+                Szklanki.getPojemnosc1(context).collect { pojemnosc1 = it }
+                Szklanki.getPojemnosc2(context).collect { pojemnosc2 = it }
+                Szklanki.getPojemnosc2(context).collect { pojemnosc = it }
+            }
             WaterGlass(
                 waterIntake = waterIntake,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+                maxWater = pojemnosc
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                WaterCard(amount = 250) { addWater(250) }
-                WaterCard(amount = 500) { addWater(500) }
+                WaterCard(amount = pojemnosc1) { addWater(pojemnosc1) }
+                WaterCard(amount = pojemnosc2) { addWater(pojemnosc2) }
             }
+            var showDialog by remember { mutableStateOf(false) }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(onClick = { removeWater(250) }) {
+                    Text("odejmij wode")
+                }
+                Button(onClick = {showDialog = true}
+                ) {
+                    Text("edytuj szklanki")
+                }
+            }
+            if (showDialog) {
+                Dialog(onDismissRequest = { showDialog = false }) {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 8.dp
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .padding(24.dp)
+                                .fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("Wybierz pojemność szklanki", style = MaterialTheme.typography.titleLarge)
+                            val options = listOf(150, 200, 250, 300, 400, 500)
+                            var selected1 by remember { mutableStateOf(pojemnosc1) }
+                            var selected2 by remember { mutableStateOf(pojemnosc2) }
 
-            Button(onClick = { removeWater(250) }) {
-                Text("edytuj szklanki")
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    options.forEach { ml ->
+                                        Button(
+                                            onClick = { selected1 = ml },
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = if (selected1 == ml) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+                                            )
+                                        ) {
+                                            Text("$ml ml")
+                                        }
+                                    }
+                                }
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    options.forEach { ml ->
+                                        Button(
+                                            onClick = { selected2 = ml },
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = if (selected2 == ml) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+                                            )
+                                        ) {
+                                            Text("$ml ml")
+                                        }
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                TextButton(onClick = { showDialog = false }) {
+                                    Text("Anuluj")
+                                }
+                                val coroutineScope = rememberCoroutineScope()
+                                Button(onClick = {
+                                    pojemnosc1 = selected1
+                                    pojemnosc2 = selected2
+                                    coroutineScope.launch {
+                                        Szklanki.zmianaPojemnosc1(context, pojemnosc1)
+                                        Szklanki.zmianaPojemnosc2(context, pojemnosc2)
+                                    }
+                                    showDialog = false
+                                }) {
+                                    Text("Zapisz")
+                                }
+                            }
+                        }
+                    }
+                }
             }
             Text(
                 text = "🚰 Pij wodę, organizm ci podziękuje!",
@@ -247,9 +368,8 @@ fun WaterCard(amount: Int, onClick: () -> Unit) {
     }
 }
 @Composable
-fun WaterGlass(waterIntake: Int, modifier: Modifier = Modifier) {
-    val maxWater = 2500f // Maksymalne napełnienie (ml)
-    val waterPercent = (waterIntake / maxWater).coerceIn(0f, 1f)
+fun WaterGlass(waterIntake: Int, modifier: Modifier = Modifier, maxWater:Int) {
+    val waterPercent = (waterIntake.toFloat() / maxWater.toFloat()).coerceIn(0f, 1f)
 
     val animatedFill by animateFloatAsState(
         targetValue = waterPercent,
@@ -259,8 +379,13 @@ fun WaterGlass(waterIntake: Int, modifier: Modifier = Modifier) {
 
     Box(
         modifier = modifier,
-        contentAlignment = Alignment.BottomCenter
+        contentAlignment = Alignment.Center
     ) {
+        val textColor = when {
+            waterPercent < 0.33f -> Color(0xFFFFB74D) // Jasny pomarańczowy
+            waterPercent < 0.66f -> Color(0xFFFFEB3B) // Jasny żółty
+            else -> Color(0xFF81C784) // Jasny zielony
+        }
         Canvas(modifier = Modifier
             .width(140.dp)
             .height(200.dp)
@@ -290,14 +415,172 @@ fun WaterGlass(waterIntake: Int, modifier: Modifier = Modifier) {
                 cornerRadius = CornerRadius(12f)
             )
         }
+        Text(
+            text = if (waterIntake > 3000) "Przestań pić" else "$waterIntake ml",
+            style = MaterialTheme.typography.bodyLarge.copy(
+                color = if (waterIntake > 3000) Color.Red else textColor,
+                fontWeight = FontWeight.Bold
+            ),
+            textAlign = TextAlign.Center
+        )
+    }
+}
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun StatystykiScreen(onBack: () -> Unit) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Statystyki") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Wróć")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("Tu będą statystyki 🧮", style = MaterialTheme.typography.headlineMedium)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HistoriaScreen(onBack: () -> Unit) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Historia") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Wróć")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("Historia 🧮", style = MaterialTheme.typography.headlineMedium)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun UstawieniaScreen(onBack: () -> Unit, navController: NavController) {
+    val context = LocalContext.current
+
+    val savedGoal by Szklanki.getPojemnosc(context).collectAsState(initial = 2500)
+    var dailyGoal by remember { mutableStateOf(savedGoal) }
+
+    var remindersEnabled by remember { mutableStateOf(true) }
+    var notificationsTime by remember { mutableStateOf("12:00") }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Ustawienia") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Wróć")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            Text(
+                text = "Cel dzienny (ml):",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Slider(
+                value = dailyGoal.toFloat(),
+                onValueChange = { dailyGoal = it.toInt() },
+                valueRange = 1000f..4000f,
+                steps = 8
+            )
+            Text(
+                text = "$dailyGoal ml",
+                style = MaterialTheme.typography.bodyLarge
+            )
+
+            Divider()
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Przypomnienia", style = MaterialTheme.typography.titleMedium)
+                Switch(
+                    checked = remindersEnabled,
+                    onCheckedChange = { remindersEnabled = it }
+                )
+            }
+
+            if (remindersEnabled) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Godzina powiadomienia:", modifier = Modifier.weight(1f))
+                    TextField(
+                        value = notificationsTime,
+                        onValueChange = { notificationsTime = it },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            Divider()
+            val coroutineScope = rememberCoroutineScope()
+
+            Button(onClick = {
+                coroutineScope.launch {
+                    Szklanki.zmianaPojemnosc(context, dailyGoal)
+                    navController.navigate("main") {
+                        popUpTo("settings") { inclusive = true }
+                    }
+                }
+            }
+            ) {
+                Text("Zapisz ustawienia")
+            }
+        }
     }
 }
 
 
+
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
 @Composable
 fun GreetingPreview() {
     DrinkTheme {
-        WaterTrackerScreen()
+        WaterTrackerScreen(onNavigateToStatystyki = {}, onNavigateToHistoria = {}, onNavigateToUstawienia = {},)
     }
 }
+
