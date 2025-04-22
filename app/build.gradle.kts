@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("kotlin-kapt") // <- TO JEST WAŻNE
+    kotlin("plugin.serialization") version "1.9.10" // np. "1.9.10"
 }
 
 
@@ -78,6 +79,9 @@ dependencies {
     implementation ("androidx.navigation:navigation-compose:2.7.5")
     implementation ("androidx.lifecycle:lifecycle-viewmodel-compose:2.5.1")
     implementation ("androidx.compose.runtime:runtime-livedata:1.5.0")
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.2")
+
 
     implementation("com.google.android.material:material:1.12.0")
     testImplementation(libs.junit)

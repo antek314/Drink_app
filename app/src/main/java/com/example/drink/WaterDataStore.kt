@@ -8,8 +8,16 @@ import java.time.LocalDate
 
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import com.example.drink.WaterDataStore.DATE_KEY
+import com.example.drink.WaterDataStore.WATER_KEY
+import com.example.drink.WaterDataStore.dataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
+
 
 object WaterDataStore {
     private val Context.dataStore by preferencesDataStore(name = "water_prefs")
@@ -34,4 +42,46 @@ object WaterDataStore {
             it[DATE_KEY] = LocalDate.now().toString()
         }
     }
+
+}
+object HistoriaRepository {
+
+    private val HISTORIA_KEY = stringPreferencesKey("historia_json")
+
+    suspend fun zapisz(context: Context, intake: Int) {
+        val today = LocalDate.now().toString()
+
+        context.dataStore.edit { preferences ->
+            val json = preferences[HISTORIA_KEY]
+            val lista = if (json != null) {
+                Json.decodeFromString<List<HistoriaEntry>>(json)
+            } else {
+                emptyList()
+            }.toMutableList()
+
+            val index = lista.indexOfFirst { it.date == today }
+            if (index >= 0) {
+                val entry = lista[index]
+                lista[index] = entry.copy(intake = entry.intake + intake)
+            } else {
+                lista.add(HistoriaEntry(today, intake))
+            }
+
+            preferences[HISTORIA_KEY] = Json.encodeToString(lista)
+        }
+    }
+
+    suspend fun pobierzHistorie(context: Context): List<HistoriaEntry> {
+        val preferences = context.dataStore.data.first()
+        val json = preferences[HISTORIA_KEY]
+        return if (json != null) {
+            Json.decodeFromString(json)
+        } else {
+            emptyList()
+        }
+    }
+    suspend fun wyczysc(context: Context) {
+        context.dataStore.edit { it.remove(HISTORIA_KEY) }
+    }
+
 }

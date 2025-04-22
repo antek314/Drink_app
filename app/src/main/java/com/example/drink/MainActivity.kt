@@ -59,6 +59,12 @@ import androidx.lifecycle.ViewModel
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Button
 import androidx.compose.material3.Slider
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.animation.animateContentSize
+import androidx.compose.material.icons.rounded.WaterDrop
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 
 
@@ -93,8 +99,9 @@ class MainActivity : ComponentActivity() {
                         composable("ustawienia") {
                             UstawieniaScreen(
                                 onBack = { navController.popBackStack() },
-                                navController)
-                                }
+                                navController
+                            )
+                        }
                     }
                 }
             }
@@ -141,6 +148,9 @@ onNavigateToUstawienia: () -> Unit
         scope.launch {
             WaterDataStore.saveIntake(context, waterIntake)
         }
+        scope.launch {
+            HistoriaRepository.zapisz(context, amount)
+        }
     }
 
     fun removeWater(amount: Int) {
@@ -148,6 +158,10 @@ onNavigateToUstawienia: () -> Unit
         scope.launch {
             WaterDataStore.saveIntake(context, waterIntake)
         }
+        scope.launch {
+            HistoriaRepository.wyczysc(context)
+        }
+
     }
 
     var toggled by remember { mutableStateOf(false) }
@@ -456,10 +470,28 @@ fun WaterGlass(waterIntake: Int, modifier: Modifier = Modifier, maxWater:Int) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatystykiScreen(onBack: () -> Unit) {
+
+    val context = LocalContext.current
+    var historia by remember { mutableStateOf<List<HistoriaEntry>>(emptyList()) }
+
+    LaunchedEffect(Unit) {
+        historia = HistoriaRepository.pobierzHistorie(context)
+    }
+
+    val srednia = historia.map { it.intake }.average().toInt()
+    val min = historia.minOfOrNull { it.intake } ?: 0
+    val max = historia.maxOfOrNull { it.intake } ?: 0
+
+    val stats = listOf(
+        "Średnie spożycie" to "$srednia ml",
+        "Maksymalnie" to "$max ml",
+        "Minimalnie" to "$min ml"
+    )
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Statystyki") },
+                title = { Text("Statystyki", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Wróć")
@@ -473,17 +505,140 @@ fun StatystykiScreen(onBack: () -> Unit) {
                 .padding(padding)
                 .fillMaxSize()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.Center,
+            verticalArrangement = Arrangement.spacedBy(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Tu będą statystyki 🧮", style = MaterialTheme.typography.headlineMedium)
+            Text(
+                text = "Twoje nawyki wody 💧",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            stats.forEach { (label, value) ->
+                StatCard(label = label, value = value)
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text = "Wykres dzienny:",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+            val ostatnie = historia.takeLast(7)
+
+            SimpleBarChart(
+                data = historia.takeLast(7).map { it.intake },
+                labels = ostatnie.map {
+                    LocalDate.parse(it.date).format(DateTimeFormatter.ofPattern("dd.MM"))
+                }
+            )
         }
     }
 }
 
+@Composable
+fun StatCard(label: String, value: String) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.fillMaxWidth().animateContentSize()
+    ) {
+        Row(
+            modifier = Modifier.padding(20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(label, style = MaterialTheme.typography.bodyLarge)
+                Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            }
+            Icon(
+                imageVector = Icons.Rounded.WaterDrop,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+
+        }
+    }
+}
+
+@Composable
+fun SimpleBarChart(data: List<Int>, labels: List<String>) {
+    val max = data.maxOrNull()?.toFloat() ?: 1f
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.Bottom
+        ) {
+            data.forEachIndexed { index, value ->
+                val heightFraction = value / max
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Bottom,
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(30.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight(heightFraction)
+                            .width(20.dp)
+                            .background(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(
+                                        MaterialTheme.colorScheme.primary,
+                                        MaterialTheme.colorScheme.tertiary
+                                    )
+                                ),
+                                shape = RoundedCornerShape(6.dp)
+                            )
+                    )
+                }
+            }
+        }
+
+        // Daty pod wykresem
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            labels.forEach { label ->
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.width(30.dp)
+                )
+            }
+        }
+    }
+}
+
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoriaScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
+    var historia by remember { mutableStateOf<List<HistoriaEntry>>(emptyList()) }
+
+    LaunchedEffect(Unit) {
+        historia = HistoriaRepository.pobierzHistorie(context)
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -496,18 +651,42 @@ fun HistoriaScreen(onBack: () -> Unit) {
             )
         }
     ) { padding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("Historia 🧮", style = MaterialTheme.typography.headlineMedium)
+            if (historia.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = 100.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Brak zapisanej historii 💧", style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+            } else {
+                items(historia) { entry ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        elevation = CardDefaults.cardElevation(4.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("Data: ${entry.date}", style = MaterialTheme.typography.titleMedium)
+                            Text("Wypito: ${entry.intake} ml", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            }
         }
     }
 }
+
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
