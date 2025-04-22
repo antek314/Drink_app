@@ -63,6 +63,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.animation.animateContentSize
 import androidx.compose.material.icons.rounded.WaterDrop
+import androidx.compose.material3.Text
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -129,7 +130,6 @@ onNavigateToUstawienia: () -> Unit
     }
 
     LaunchedEffect(Unit) {
-        // Kolejne collect() śledzące zmiany pojemności
         Szklanki.getPojemnosc1(context).collect { pojemnosc1 = it }
         Szklanki.getPojemnosc2(context).collect { pojemnosc2 = it }
         Szklanki.getPojemnosc(context).collect { pojemnosc = it }
@@ -159,7 +159,7 @@ onNavigateToUstawienia: () -> Unit
             WaterDataStore.saveIntake(context, waterIntake)
         }
         scope.launch {
-            HistoriaRepository.wyczysc(context)
+            HistoriaRepository.zapisz(context, -amount)
         }
 
     }
@@ -177,12 +177,13 @@ onNavigateToUstawienia: () -> Unit
         animationSpec = tween(durationMillis = 100, easing = LinearEasing),
         label = "bg_anim"
     )
-
-    val progress = (waterIntake / 2000f).coerceIn(0f, 1f)
+    val progress = if (pojemnosc != 0) {
+        (waterIntake.toFloat() / pojemnosc).coerceIn(0f, 1f)
+    } else 0f
 
     ModalNavigationDrawer(
         drawerState = rememberDrawerState(initialValue = DrawerValue.Closed),
-        scrimColor = Color.Black.copy(alpha = 0.75f), // Przyciemnienie tła
+        scrimColor = Color.Black.copy(alpha = 0.75f),
         drawerContent = {
             Column(
                 modifier = Modifier
@@ -303,7 +304,7 @@ onNavigateToUstawienia: () -> Unit
             var showDialog by remember { mutableStateOf(false) }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(onClick = { removeWater(250) }) {
-                    Text("odejmij wode")
+                    Text("odlej 100 ml")
                 }
                 Button(onClick = {showDialog = true}
                 ) {
@@ -324,7 +325,7 @@ onNavigateToUstawienia: () -> Unit
                             verticalArrangement = Arrangement.spacedBy(16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text("Wybierz pojemność szklanki", style = MaterialTheme.typography.titleLarge)
+                            Text("Wybierz pojemność szklanek", style = MaterialTheme.typography.titleLarge)
                             val options = listOf(150, 200, 250, 300, 400, 500)
                             var selected1 by remember { mutableStateOf(pojemnosc1) }
                             var selected2 by remember { mutableStateOf(pojemnosc2) }
@@ -403,7 +404,7 @@ fun WaterCard(amount: Int, onClick: () -> Unit) {
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
-                "+$amount ml",
+                "+$amount ml 💧",
                 style = MaterialTheme.typography.headlineSmall.copy(
                     fontWeight = FontWeight.ExtraBold
                 )
@@ -458,9 +459,9 @@ fun WaterGlass(waterIntake: Int, modifier: Modifier = Modifier, maxWater:Int) {
             )
         }
         Text(
-            text = if (waterIntake > 3000) "Przestań pić" else "$waterIntake ml",
+            text = if (waterIntake > 3500) "Przestań pić" else "$waterIntake ml",
             style = MaterialTheme.typography.bodyLarge.copy(
-                color = if (waterIntake > 3000) Color.Red else textColor,
+                color = if (waterIntake > 3500) Color.Red else textColor,
                 fontWeight = FontWeight.Bold
             ),
             textAlign = TextAlign.Center
@@ -518,22 +519,25 @@ fun StatystykiScreen(onBack: () -> Unit) {
                 StatCard(label = label, value = value)
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(5.dp))
 
             Text(
                 text = "Wykres dzienny:",
                 style = MaterialTheme.typography.titleMedium
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(1.dp))
             val ostatnie = historia.takeLast(7)
-
-            SimpleBarChart(
-                data = historia.takeLast(7).map { it.intake },
-                labels = ostatnie.map {
-                    LocalDate.parse(it.date).format(DateTimeFormatter.ofPattern("dd.MM"))
-                }
-            )
+            if (ostatnie.isEmpty()) {
+                Text("Brak danych do wyświetlenia wykresu.")
+            } else {
+                SimpleBarChart(
+                    data = ostatnie.map { it.intake },
+                    labels = ostatnie.map {
+                        LocalDate.parse(it.date).format(DateTimeFormatter.ofPattern("dd.MM"))
+                    }
+                )
+            }
         }
     }
 }
@@ -547,7 +551,7 @@ fun StatCard(label: String, value: String) {
         modifier = Modifier.fillMaxWidth().animateContentSize()
     ) {
         Row(
-            modifier = Modifier.padding(20.dp),
+            modifier = Modifier.padding(15.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -567,7 +571,12 @@ fun StatCard(label: String, value: String) {
 
 @Composable
 fun SimpleBarChart(data: List<Int>, labels: List<String>) {
-    val max = data.maxOrNull()?.toFloat() ?: 1f
+    val max = data.maxOrNull()?.takeIf { it > 0 }?.toFloat() ?: 1f
+
+    if (data.isEmpty()) {
+        Text("Brak danych do wyświetlenia", modifier = Modifier.padding(16.dp))
+        return
+    }
 
     Column(
         modifier = Modifier
@@ -582,7 +591,9 @@ fun SimpleBarChart(data: List<Int>, labels: List<String>) {
             verticalAlignment = Alignment.Bottom
         ) {
             data.forEachIndexed { index, value ->
-                val heightFraction = value / max
+                val heightFraction = (value.toFloat() / max).coerceIn(0f, 1f)
+                val animacja by animateFloatAsState(targetValue = heightFraction)
+
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Bottom,
@@ -592,7 +603,7 @@ fun SimpleBarChart(data: List<Int>, labels: List<String>) {
                 ) {
                     Box(
                         modifier = Modifier
-                            .fillMaxHeight(heightFraction)
+                            .fillMaxHeight(animacja)
                             .width(20.dp)
                             .background(
                                 brush = Brush.verticalGradient(
@@ -608,7 +619,6 @@ fun SimpleBarChart(data: List<Int>, labels: List<String>) {
             }
         }
 
-        // Daty pod wykresem
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -620,12 +630,13 @@ fun SimpleBarChart(data: List<Int>, labels: List<String>) {
                     text = label,
                     style = MaterialTheme.typography.bodySmall,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.width(30.dp)
+                    modifier = Modifier.width(35.dp)
                 )
             }
         }
     }
 }
+
 
 
 
@@ -650,34 +661,81 @@ fun HistoriaScreen(onBack: () -> Unit) {
                 }
             )
         }
+
     ) { padding ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(3.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (historia.isEmpty()) {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(top = 100.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("Brak zapisanej historii 💧", style = MaterialTheme.typography.bodyLarge)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Twoja historia 💧",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            //Spacer(modifier = Modifier.height(3.dp))
+            LazyColumn(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                if (historia.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(top = 100.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "Brak zapisanej historii 💧",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
                     }
-                }
-            } else {
-                items(historia) { entry ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        elevation = CardDefaults.cardElevation(4.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Data: ${entry.date}", style = MaterialTheme.typography.titleMedium)
-                            Text("Wypito: ${entry.intake} ml", style = MaterialTheme.typography.bodyMedium)
+                } else {
+                    items(historia) { entry ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            elevation = CardDefaults.cardElevation(1.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 1.dp),
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            )
+                            {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text(
+                                        "Data: ${entry.date}",
+                                        style = MaterialTheme.typography.titleMedium
+                                    )
+                                    Text(
+                                        "Wypito: ${entry.intake} ml",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 17.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.WaterDrop,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -716,7 +774,7 @@ fun UstawieniaScreen(onBack: () -> Unit, navController: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Ustawienia") },
+                title = { Text("Ustawienia 💧") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Wróć")
