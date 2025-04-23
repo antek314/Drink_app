@@ -706,7 +706,7 @@ fun HistoriaScreen(onBack: () -> Unit) {
                     .padding(padding)
                     .fillMaxSize()
                     .padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 if (historia.isEmpty()) {
                     item {
@@ -726,12 +726,12 @@ fun HistoriaScreen(onBack: () -> Unit) {
                     items(historia) { entry ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            elevation = CardDefaults.cardElevation(1.dp)
+                            elevation = CardDefaults.cardElevation(8.dp)
                         ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(top = 1.dp),
+                                    .padding(top = 8.dp),
                                 horizontalArrangement = Arrangement.SpaceEvenly
                             )
                             {
