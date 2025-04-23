@@ -66,7 +66,21 @@ import androidx.compose.material.icons.rounded.WaterDrop
 import androidx.compose.material3.Text
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import android.os.Build
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import java.util.Calendar
+import android.app.PendingIntent
+import android.app.AlarmManager
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import android.Manifest
+import android.content.pm.PackageManager
 
 
 
@@ -74,6 +88,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        //createNotificationChannel(context = this)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
+            }
+        }
         setContent {
             DrinkTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -303,7 +325,7 @@ onNavigateToUstawienia: () -> Unit
             }
             var showDialog by remember { mutableStateOf(false) }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(onClick = { removeWater(250) }) {
+                Button(onClick = { removeWater(100) }) {
                     Text("odlej 100 ml")
                 }
                 Button(onClick = {showDialog = true}
@@ -371,6 +393,7 @@ onNavigateToUstawienia: () -> Unit
                                         Szklanki.zmianaPojemnosc1(context, pojemnosc1)
                                         Szklanki.zmianaPojemnosc2(context, pojemnosc2)
                                     }
+
                                     showDialog = false
                                 }) {
                                     Text("Zapisz")
@@ -845,6 +868,15 @@ fun UstawieniaScreen(onBack: () -> Unit, navController: NavController) {
                     Szklanki.zmianaStatusu(context, remindersEnabled)
                     Szklanki.zmianaGodziny(context, notificationsTime.toString())
 
+                    // Ustaw alarm
+                    cancelNotificationAlarm(context)
+                    val prefs = context.getSharedPreferences("ustawienia", Context.MODE_PRIVATE)
+                    prefs.edit().putString("notificationTime", notificationsTime.toString()).apply()
+
+                    if (remindersEnabled) {
+                        setDailyNotificationAlarm(context, notificationsTime)
+                    }
+
                     navController.navigate("main") {
                         popUpTo("settings") { inclusive = true }
                     }
@@ -856,8 +888,46 @@ fun UstawieniaScreen(onBack: () -> Unit, navController: NavController) {
         }
     }
 }
+fun setDailyNotificationAlarm(context: Context, time: String) {
+    val (hour, minute) = time.split(":").map { it.toInt() }
 
+    val calendar = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, hour)
+        set(Calendar.MINUTE, minute)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+        if (before(Calendar.getInstance())) {
+            add(Calendar.DATE, 1)
+        }
+    }
 
+    val intent = Intent(context, Powiadomienia::class.java)
+    val pendingIntent = PendingIntent.getBroadcast(
+        context,
+        0,
+        intent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+
+    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    alarmManager.setExactAndAllowWhileIdle(
+        AlarmManager.RTC_WAKEUP,
+        calendar.timeInMillis,
+        pendingIntent
+    )
+}
+fun cancelNotificationAlarm(context: Context) {
+    val intent = Intent(context, Powiadomienia::class.java)
+    val pendingIntent = PendingIntent.getBroadcast(
+        context,
+        0,
+        intent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+
+    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    alarmManager.cancel(pendingIntent)
+}
 
 
 @OptIn(ExperimentalMaterial3Api::class)
