@@ -449,14 +449,14 @@ onNavigateToUstawienia: () -> Unit
                                 }
                                 val coroutineScope = rememberCoroutineScope()
                                 Button(onClick = {
-                                    pojemnosc1 = selected1
-                                    pojemnosc2 = selected2
                                     coroutineScope.launch {
-                                        Szklanki.zmianaPojemnosc1(context, pojemnosc1)
-                                        Szklanki.zmianaPojemnosc2(context, pojemnosc2)
+                                        pojemnosc1 = selected1
+                                        pojemnosc2 = selected2
+                                        Szklanki.zmianaPojemnosc1(context, selected1)
+                                        Szklanki.zmianaPojemnosc2(context, selected2)
+                                        showDialog = false
                                     }
 
-                                    showDialog = false
                                 }) {
                                     Text("Zapisz")
                                 }
@@ -544,7 +544,7 @@ fun WaterGlass(waterIntake: Int, modifier: Modifier = Modifier, maxWater:Int) {
             )
         }
         Text(
-            text = if (waterIntake > 3500) "Przestań pić" else "$waterIntake ml",
+            text = if (waterIntake > 4000) "Przestań pić" else "$waterIntake ml",
             style = MaterialTheme.typography.bodyLarge.copy(
                 color = if (waterIntake > 3500) Color.Red else textColor,
                 fontWeight = FontWeight.Bold
@@ -612,7 +612,7 @@ fun StatystykiScreen(onBack: () -> Unit) {
             )
 
             Spacer(modifier = Modifier.height(1.dp))
-            val ostatnie = historia.takeLast(7)
+            val ostatnie = historia.takeLast(10)
             if (ostatnie.isEmpty()) {
                 Text("Brak danych do wyświetlenia wykresu.")
             } else {
@@ -738,7 +738,7 @@ fun HistoriaScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Historia") },
+                title = { Text("Historia \uD83D\uDCA7") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Wróć")
@@ -750,23 +750,23 @@ fun HistoriaScreen(onBack: () -> Unit) {
     ) { padding ->
         Column(
             modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .padding(3.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                //.padding(padding)
+                //.fillMaxSize()
+                //.padding(3.dp),
+            //verticalArrangement = Arrangement.spacedBy(12.dp),
+            //horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Twoja historia 💧",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.SemiBold
-            )
+            //Spacer(modifier = Modifier.height(4.dp))
+//            Text(
+//                text = "Twoja historia 💧",
+//                style = MaterialTheme.typography.headlineSmall,
+//                fontWeight = FontWeight.SemiBold
+//            )
             //Spacer(modifier = Modifier.height(3.dp))
             LazyColumn(
                 modifier = Modifier
                     .padding(padding)
-                    .fillMaxSize()
+                    //.fillMaxSize()
                     .padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
@@ -813,10 +813,15 @@ fun HistoriaScreen(onBack: () -> Unit) {
                                         .padding(vertical = 17.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
+                                    val kolorIkony = when {
+                                        entry.intake > 1650 -> Color(0xFF4CAF50)     // Zielony (jasny)
+                                        entry.intake > 1400 -> Color(0xFFFF9800)     // Pomarańczowy
+                                        else -> Color(0xFFF44336)                    // Czerwony
+                                    }
                                     Icon(
                                         imageVector = Icons.Rounded.WaterDrop,
                                         contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
+                                        tint = kolorIkony,
                                         modifier = Modifier.size(32.dp)
                                     )
                                 }
