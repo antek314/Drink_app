@@ -85,7 +85,7 @@ import android.appwidget.AppWidgetManager
 import android.content.IntentFilter
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.runtime.DisposableEffect
-
+import androidx.compose.ui.unit.sp
 
 
 
@@ -593,15 +593,87 @@ fun WaterGlass(waterIntake: Int, modifier: Modifier = Modifier, maxWater:Int) {
         )
     }
 }
+
+@Composable
+fun SimpleBarChart(
+    data: List<Int>,
+    target: Int,
+    labels: List<String>
+) {
+    val maxValue = maxOf(target, data.maxOrNull() ?: target)
+
+    Row(
+        modifier = Modifier
+            .height(200.dp)
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = Arrangement.spacedBy(32.dp)  // Odstęp 24.dp między kolumnami
+    ) {
+        data.forEachIndexed { index, value ->
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.width(48.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(24.dp)
+                        .height(180.dp)
+                ) {
+                    // Słupek celu (tło)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height((target * 180 / maxValue).dp)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+                            .align(Alignment.BottomCenter)
+                    )
+
+                    // Słupek aktualny (przód)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height((value * 180 / maxValue).dp)
+                            .background(MaterialTheme.colorScheme.primary)
+                            .align(Alignment.BottomCenter)
+                    )
+                }
+
+                // Data (większa i z odstępem)
+                Text(
+                    text = labels[index],
+                    fontSize = 14.sp,  // Zwiększone z 10.sp
+                    fontWeight = FontWeight.Bold, // Pogrubienie
+                    textAlign = TextAlign.Center, // Nowe
+                    modifier = Modifier.fillMaxWidth()                )
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatystykiScreen(onBack: () -> Unit) {
 
     val context = LocalContext.current
     var historia by remember { mutableStateOf<List<HistoriaEntry>>(emptyList()) }
+    var dailyTarget by remember { mutableStateOf(2000) }
+
+    /*
+    val testData = listOf(
+        HistoriaEntry(date = "2023-05-01", intake = 800),
+        HistoriaEntry(date = "2023-05-02", intake = 1200),
+        HistoriaEntry(date = "2023-05-03", intake = 2200),
+        HistoriaEntry(date = "2023-05-04", intake = 1500),
+        HistoriaEntry(date = "2023-05-05", intake = 1800)
+    )
+
+    val historia by remember { mutableStateOf(testData) } // <- Nadpisanie danymi testowymi
+    dailyTarget = 2000
+    */
 
     LaunchedEffect(Unit) {
         historia = HistoriaRepository.pobierzHistorie(context)
+        dailyTarget = WaterDataStore.getWaterTarget(context)
     }
 
     val srednia = historia.map { it.intake }.average().toInt()
@@ -659,6 +731,7 @@ fun StatystykiScreen(onBack: () -> Unit) {
             } else {
                 SimpleBarChart(
                     data = ostatnie.map { it.intake },
+                    target = dailyTarget,  // Nowy parametr!
                     labels = ostatnie.map {
                         LocalDate.parse(it.date).format(DateTimeFormatter.ofPattern("dd.MM"))
                     }

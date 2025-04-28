@@ -25,6 +25,12 @@ object WaterDataStore {
     private val WATER_KEY = intPreferencesKey("water_intake")
     private val DATE_KEY = stringPreferencesKey("last_date")
 
+    private val TARGET_KEY = intPreferencesKey("water_target")
+
+    suspend fun getWaterTarget(context: Context): Int {
+        return context.dataStore.data.first()[TARGET_KEY] ?: 2000
+    }
+
     suspend fun loadIntake(context: Context): Int {
         val prefs = context.dataStore.data.first()
         val savedDate = prefs[DATE_KEY]
