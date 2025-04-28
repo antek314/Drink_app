@@ -544,9 +544,9 @@ fun WaterGlass(waterIntake: Int, modifier: Modifier = Modifier, maxWater:Int) {
             )
         }
         Text(
-            text = if (waterIntake > 4000) "Przestań pić" else "$waterIntake ml",
+            text = if (waterIntake > maxWater*2) "Przestań pić" else "$waterIntake ml",
             style = MaterialTheme.typography.bodyLarge.copy(
-                color = if (waterIntake > 3500) Color.Red else textColor,
+                color = if (waterIntake > maxWater*1.5) Color.Red else textColor,
                 fontWeight = FontWeight.Bold
             ),
             textAlign = TextAlign.Center
