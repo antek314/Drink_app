@@ -31,7 +31,6 @@ class WaterWidget : AppWidgetProvider() {
         const val ACTION_ADD_WATER = "com.example.drink.ACTION_ADD_WATER"
         const val EXTRA_AMOUNT = "amount"
 
-        // TUTAJ UMIEŚĆ ZMODYFIKOWANĄ FUNKCJĘ:
         internal fun updateAppWidget(
             context: Context,
             appWidgetManager: AppWidgetManager,

@@ -83,6 +83,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.appwidget.AppWidgetManager
 import android.content.IntentFilter
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.runtime.DisposableEffect
 
 
@@ -264,10 +265,14 @@ onNavigateToUstawienia: () -> Unit
     val progress = if (pojemnosc != 0) {
         (waterIntake.toFloat() / pojemnosc).coerceIn(0f, 1f)
     } else 0f
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+
 
     ModalNavigationDrawer(
-        drawerState = rememberDrawerState(initialValue = DrawerValue.Closed),
-        scrimColor = Color.Black.copy(alpha = 0.75f),
+
+        //drawerState = rememberDrawerState(initialValue = DrawerValue.Closed),
+        drawerState = drawerState,
+        scrimColor = Color.Black.copy(alpha = 0.88f),
         drawerContent = {
             Column(
                 modifier = Modifier
@@ -286,7 +291,7 @@ onNavigateToUstawienia: () -> Unit
                         )
                     )
                 )
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(40.dp))
                 Divider()
                 Spacer(modifier = Modifier.height(20.dp))
 
@@ -339,16 +344,51 @@ onNavigateToUstawienia: () -> Unit
                         colors = listOf(animatedColor, Color.White)
                     )
                 )
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+                .padding(2.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                "Drink app",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    color = MaterialTheme.colorScheme.primary
-                )
+            Row(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = 1.dp, vertical = 1.dp), // mniejsze paddingi
+            verticalAlignment = Alignment.CenterVertically
+            ){
+            Surface(
+                shape = MaterialTheme.shapes.small,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f) // delikatne półprzezroczyste tło
             )
+            {
+                IconButton(
+
+                    onClick = {
+                        scope.launch { drawerState.open() }
+                    },
+                    modifier = Modifier.size(40.dp) // lekko zmniejszona strefa kliknięcia
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "Więcej opcji",
+                        tint = Color.White
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .align(Alignment.CenterVertically),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "Drink app      ",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                    )
+            }
+        }
 
             LinearProgressIndicator(
                 progress = progress,
@@ -591,7 +631,7 @@ fun StatystykiScreen(onBack: () -> Unit) {
                 .padding(padding)
                 .fillMaxSize()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -610,6 +650,7 @@ fun StatystykiScreen(onBack: () -> Unit) {
                 text = "Wykres dzienny:",
                 style = MaterialTheme.typography.titleMedium
             )
+            Divider()
 
             Spacer(modifier = Modifier.height(1.dp))
             val ostatnie = historia.takeLast(10)
